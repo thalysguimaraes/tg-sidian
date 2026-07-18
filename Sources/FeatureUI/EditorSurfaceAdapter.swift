@@ -158,11 +158,10 @@ public final class NativeEditorSurfaceAdapter: EditorSurface {
     }
 
     /// Called by the AppKit delegate after text input commits.
-    func noteUserEdit() {
-        guard let textView else { return }
-        detachedText = textView.string
-        let selected = textView.selectedRange()
-        detachedSelection = selected.location..<(selected.location + selected.length)
+    func noteUserEdit(text: String, selection: NSRange) {
+        guard textView != nil else { return }
+        detachedText = text
+        detachedSelection = selection.location..<(selection.location + selection.length)
         isDirty = true
     }
 
@@ -246,6 +245,7 @@ enum NativeMarkdownStyler {
         inlineTokenDecorations: (String, [NSRange]) -> [InlineTokenDecoration] = { _, _ in [] }
     ) {
         guard let storage = textView.textStorage else { return }
+        let text = textView.string
         let size = Typography.clampEditorFontSize(fontSize)
         let body = NSFont.systemFont(ofSize: size)
         let mono = NSFont.monospacedSystemFont(ofSize: size - 1, weight: .regular)
@@ -258,6 +258,26 @@ enum NativeMarkdownStyler {
             .foregroundColor: NSColor.labelColor,
             .paragraphStyle: paragraph
         ]
+        let subduedMonoAttributes: [NSAttributedString.Key: Any] = [
+            .font: mono,
+            .foregroundColor: NSColor.secondaryLabelColor
+        ]
+        let taskAttributes: [NSAttributedString.Key: Any] = [.font: mono]
+        let linkAttributes: [NSAttributedString.Key: Any] = [
+            .foregroundColor: NSColor.linkColor
+        ]
+        let tagAttributes: [NSAttributedString.Key: Any] = [
+            .foregroundColor: NSColor.controlAccentColor
+        ]
+        let inlineCodeAttributes: [NSAttributedString.Key: Any] = [
+            .font: mono,
+            .backgroundColor: NSColor.secondaryLabelColor.withAlphaComponent(0.12)
+        ]
+        let headingFonts = (0...6).map { level in
+            let weight: NSFont.Weight = level <= 2 ? .bold : .semibold
+            let scale = max(1.0, 1.5 - Double(level) * 0.08)
+            return NSFont.systemFont(ofSize: size * scale, weight: weight)
+        }
 
         // The caret takes its metrics from the typing attributes. Without these the insertion
         // point falls back to the field default (Helvetica 12) and draws at the wrong size and
@@ -272,14 +292,15 @@ enum NativeMarkdownStyler {
         ]
 
         let full = NSRange(location: 0, length: storage.length)
-        let styledRanges = MarkdownHighlighter().scan(textView.string)
+        let styledRanges = MarkdownHighlighter().scan(text)
         let literalRanges = styledRanges
             .filter { $0.kind == .frontMatter || $0.kind == .codeFence }
             .map(\.range)
         let concealment = LivePreviewConcealment.scan(
-            textView.string,
+            text,
             excluding: literalRanges,
-            inlineTokens: inlineTokenDecorations(textView.string, literalRanges)
+            inlineTokens: inlineTokenDecorations(text, literalRanges),
+            reusing: styledRanges
         )
 
         storage.beginEditing()
@@ -289,28 +310,20 @@ enum NativeMarkdownStyler {
             guard NSMaxRange(styled.range) <= storage.length else { continue }
             switch styled.kind {
             case let .heading(level):
-                let weight: NSFont.Weight = level <= 2 ? .bold : .semibold
-                let scale = max(1.0, 1.5 - Double(level) * 0.08)
                 storage.addAttributes(
-                    [.font: NSFont.systemFont(ofSize: size * scale, weight: weight)],
+                    [.font: headingFonts[level]],
                     range: styled.range
                 )
             case .frontMatter:
-                storage.addAttributes(
-                    [.font: mono, .foregroundColor: NSColor.secondaryLabelColor],
-                    range: styled.range
-                )
+                storage.addAttributes(subduedMonoAttributes, range: styled.range)
             case .codeFence:
-                storage.addAttributes(
-                    [.font: mono, .foregroundColor: NSColor.secondaryLabelColor],
-                    range: styled.range
-                )
+                storage.addAttributes(subduedMonoAttributes, range: styled.range)
             case .task:
-                storage.addAttributes([.font: mono], range: styled.range)
+                storage.addAttributes(taskAttributes, range: styled.range)
             case .wikiLink, .markdownLink:
-                storage.addAttributes([.foregroundColor: NSColor.linkColor], range: styled.range)
+                storage.addAttributes(linkAttributes, range: styled.range)
             case .tag:
-                storage.addAttributes([.foregroundColor: NSColor.controlAccentColor], range: styled.range)
+                storage.addAttributes(tagAttributes, range: styled.range)
             }
         }
 
@@ -330,13 +343,7 @@ enum NativeMarkdownStyler {
                     range: element.visible
                 )
             case .inlineCode:
-                storage.addAttributes(
-                    [
-                        .font: mono,
-                        .backgroundColor: NSColor.secondaryLabelColor.withAlphaComponent(0.12)
-                    ],
-                    range: element.visible
-                )
+                storage.addAttributes(inlineCodeAttributes, range: element.visible)
             case .inlineToken:
                 break // Layout and drawing are glyph-level, in `ConcealingLayoutManager`.
             }

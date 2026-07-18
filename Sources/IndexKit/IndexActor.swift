@@ -220,7 +220,10 @@ public actor IndexActor: IndexQuerying {
         let changedNotes = changed
         let seenIDs = seen
         try await queue.write { db in
-            for note in changedNotes { try Self.upsert(note, in: db) }
+            let encoder = Self.makeJSONEncoder()
+            for note in changedNotes {
+                _ = try Self.upsert(note, in: db, encoder: encoder)
+            }
             let storedIDs = try String.fetchAll(db, sql: "SELECT id FROM notes")
             for rawID in storedIDs where !seenIDs.contains(NoteID(rawValue: rawID)) {
                 try db.execute(sql: "DELETE FROM notes WHERE id = ?", arguments: [rawID])
@@ -282,7 +285,10 @@ public actor IndexActor: IndexQuerying {
         try await queue.write { db in
             try db.execute(sql: "DELETE FROM links")
             try db.execute(sql: "DELETE FROM notes")
-            for note in rebuiltNotes { try Self.upsert(note, in: db) }
+            let encoder = Self.makeJSONEncoder()
+            for note in rebuiltNotes {
+                _ = try Self.upsert(note, in: db, encoder: encoder)
+            }
             try Self.refreshLinkResolutions(in: db)
         }
         quarantinedOnOpen = false
@@ -395,7 +401,10 @@ public actor IndexActor: IndexQuerying {
             for path in removedPaths {
                 try db.execute(sql: "DELETE FROM notes WHERE id = ?", arguments: [NoteID(path: path).rawValue])
             }
-            for note in upsertedNotes { try Self.upsert(note, in: db) }
+            let encoder = Self.makeJSONEncoder()
+            for note in upsertedNotes {
+                _ = try Self.upsert(note, in: db, encoder: encoder)
+            }
             try Self.refreshLinkResolutions(in: db)
         }
         try Self.storeLastEventID(lastEventID, in: queue)
@@ -422,8 +431,16 @@ public actor IndexActor: IndexQuerying {
             fingerprint: snapshot.fingerprint
         )
         try queue.write { db in
-            try Self.upsert(note, in: db)
-            try Self.refreshLinkResolutions(in: db)
+            let preservesResolutionIdentity = try Self.upsert(
+                note,
+                in: db,
+                encoder: Self.makeJSONEncoder()
+            )
+            if preservesResolutionIdentity {
+                try Self.refreshLinkResolutions(forSourceID: note.id.rawValue, in: db)
+            } else {
+                try Self.refreshLinkResolutions(in: db)
+            }
         }
     }
 
@@ -474,8 +491,9 @@ public actor IndexActor: IndexQuerying {
     public func allNotes() -> [NoteSummary] {
         guard let queue = try? database() else { return [] }
         return (try? queue.read { db in
-            try Row.fetchAll(db, sql: Self.summarySelect + " ORDER BY path COLLATE NOCASE, path")
-                .map(Self.summary(from:))
+            let decoder = JSONDecoder()
+            return try Row.fetchAll(db, sql: Self.summarySelect + " ORDER BY path COLLATE NOCASE, path")
+                .map { try Self.summary(from: $0, decoder: decoder) }
         }) ?? []
     }
 
@@ -507,11 +525,12 @@ public actor IndexActor: IndexQuerying {
                 JOIN notes n ON n.id = l.source_id
                 WHERE l.target_id = ? AND l.status = 'resolved'
                 ORDER BY n.path COLLATE NOCASE, n.path, l.ordinal
-                """, arguments: [noteID.rawValue])
+            """, arguments: [noteID.rawValue])
+            let decoder = JSONDecoder()
             return try rows.map { row in
-                let source = try Self.summary(from: row)
+                let source = try Self.summary(from: row, decoder: decoder)
                 let data: Data = row["parsed_json"]
-                let indexed = try JSONDecoder().decode(IndexedNote.self, from: data)
+                let indexed = try decoder.decode(IndexedNote.self, from: data)
                 let line: Int = row["line"]
                 let heading = indexed.parsed.headings.filter { $0.line <= line }.last?.text
                 let rawTarget: String = row["raw_target"]
@@ -666,9 +685,38 @@ public actor IndexActor: IndexQuerying {
         }
     }
 
-    private static func upsert(_ note: IndexedNote, in db: Database) throws {
+    private struct LinkResolutionIdentity: Equatable {
+        let path: String
+        let filename: String
+        let title: String
+    }
+
+    private static func makeJSONEncoder() -> JSONEncoder {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
+        return encoder
+    }
+
+    @discardableResult
+    private static func upsert(
+        _ note: IndexedNote,
+        in db: Database,
+        encoder: JSONEncoder
+    ) throws -> Bool {
+        let previousIdentity = try Row.fetchOne(
+            db,
+            sql: "SELECT path, title FROM notes WHERE id = ?",
+            arguments: [note.id.rawValue]
+        ).map { row in
+            try linkResolutionIdentity(
+                path: RelativePath(row["path"] as String),
+                title: row["title"]
+            )
+        }
+        let preservesResolutionIdentity = previousIdentity == linkResolutionIdentity(
+            path: note.path,
+            title: note.parsed.title
+        )
         let parsedData = try encoder.encode(note)
         let tags = note.parsed.tags.sorted()
         let tagsJSON = String(decoding: try encoder.encode(tags), as: UTF8.self)
@@ -680,7 +728,7 @@ public actor IndexActor: IndexQuerying {
         let normalizedHeadings = "\n" + headings.map(searchKey).joined(separator: "\n") + "\n"
         let noteType = note.parsed.frontMatter["type"]?.stringValue
 
-        try db.execute(sql: """
+        let upsertStatement = try db.cachedStatement(sql: """
             INSERT INTO notes (
                 id, path, title, normalized_title, normalized_path,
                 tags, normalized_tags, tags_json,
@@ -709,7 +757,8 @@ public actor IndexActor: IndexQuerying {
                 content_hash = excluded.content_hash,
                 parsed_json = excluded.parsed_json,
                 diagnostic_count = excluded.diagnostic_count
-            """, arguments: [
+            """)
+        try upsertStatement.execute(arguments: [
                 note.id.rawValue,
                 note.path.rawValue,
                 note.parsed.title,
@@ -731,26 +780,56 @@ public actor IndexActor: IndexQuerying {
                 parsedData,
                 note.parsed.diagnostics.count
             ])
-        try db.execute(sql: "DELETE FROM links WHERE source_id = ?", arguments: [note.id.rawValue])
+        try db.cachedStatement(sql: "DELETE FROM links WHERE source_id = ?")
+            .execute(arguments: [note.id.rawValue])
+        let insertLink = try db.cachedStatement(sql: """
+            INSERT INTO links (source_id, ordinal, raw_target, heading, line)
+            VALUES (?, ?, ?, ?, ?)
+            """)
         for (ordinal, link) in note.parsed.links.enumerated() {
-            try db.execute(sql: """
-                INSERT INTO links (source_id, ordinal, raw_target, heading, line)
-                VALUES (?, ?, ?, ?, ?)
-                """, arguments: [note.id.rawValue, ordinal, link.rawTarget, link.heading, link.line])
+            try insertLink.execute(arguments: [
+                note.id.rawValue,
+                ordinal,
+                link.rawTarget,
+                link.heading,
+                link.line
+            ])
         }
+        return preservesResolutionIdentity
     }
 
-    private static func refreshLinkResolutions(in db: Database) throws {
-        struct Candidate {
-            let id: String
-            let path: String
-            let filename: String
-            let title: String
-        }
-        let candidates: [Candidate] = try Row.fetchAll(db, sql: "SELECT id, path, title FROM notes").map { row in
+    private static func linkResolutionIdentity(
+        path: RelativePath,
+        title: String
+    ) -> LinkResolutionIdentity {
+        LinkResolutionIdentity(
+            path: NotePathIdentity.key(path.deletingPathExtension.rawValue),
+            filename: NotePathIdentity.key(path.nameWithoutExtension),
+            title: NotePathIdentity.key(title)
+        )
+    }
+
+    private struct LinkResolutionCandidate {
+        let id: String
+        let path: String
+        let filename: String
+        let title: String
+    }
+
+    private struct LinkResolutionIndex {
+        let exactPaths: [String: String]
+        let filenames: [String: [LinkResolutionCandidate]]
+        let titles: [String: [LinkResolutionCandidate]]
+    }
+
+    private static func makeLinkResolutionIndex(in db: Database) throws -> LinkResolutionIndex {
+        let candidates: [LinkResolutionCandidate] = try Row.fetchAll(
+            db,
+            sql: "SELECT id, path, title FROM notes"
+        ).map { row in
             let path: String = row["path"]
             let relative = try RelativePath(path)
-            return Candidate(
+            return LinkResolutionCandidate(
                 id: row["id"],
                 path: NotePathIdentity.key(relative.deletingPathExtension.rawValue),
                 filename: NotePathIdentity.key(relative.nameWithoutExtension),
@@ -764,35 +843,64 @@ public actor IndexActor: IndexQuerying {
             candidates.map { ($0.path, $0.id) },
             uniquingKeysWith: { min($0, $1) }
         )
-        let filenames = Dictionary(grouping: candidates, by: \.filename)
-        let titles = Dictionary(grouping: candidates, by: \.title)
-        let links = try Row.fetchAll(db, sql: "SELECT source_id, ordinal, raw_target FROM links")
+        return LinkResolutionIndex(
+            exactPaths: exactPaths,
+            filenames: Dictionary(grouping: candidates, by: \.filename),
+            titles: Dictionary(grouping: candidates, by: \.title)
+        )
+    }
 
+    private static func updateLinkResolutions(
+        _ links: [Row],
+        using index: LinkResolutionIndex,
+        in db: Database
+    ) throws {
+        let update = try db.cachedStatement(sql: """
+            UPDATE links SET target_id = ?, status = ?
+            WHERE source_id = ? AND ordinal = ?
+            """)
         for link in links {
             let rawTarget: String = link["raw_target"]
             var target = NotePathIdentity.key(rawTarget.replacingOccurrences(of: "\\", with: "/"))
             if target.hasSuffix(".md") { target.removeLast(3) }
             let targetID: String?
             let status: String
-            if let exact = exactPaths[target] {
+            if let exact = index.exactPaths[target] {
                 targetID = exact
                 status = "resolved"
-            } else if !target.contains("/"), let matches = filenames[target], matches.count == 1 {
+            } else if !target.contains("/"),
+                      let matches = index.filenames[target],
+                      matches.count == 1 {
                 targetID = matches[0].id
                 status = "resolved"
-            } else if !target.contains("/"), let matches = titles[target], matches.count == 1 {
+            } else if !target.contains("/"),
+                      let matches = index.titles[target],
+                      matches.count == 1 {
                 targetID = matches[0].id
                 status = "resolved"
             } else {
-                let ambiguous = (!target.contains("/") && ((filenames[target]?.count ?? 0) > 1 || (titles[target]?.count ?? 0) > 1))
+                let ambiguous = !target.contains("/")
+                    && ((index.filenames[target]?.count ?? 0) > 1
+                        || (index.titles[target]?.count ?? 0) > 1)
                 targetID = nil
                 status = ambiguous ? "ambiguous" : "unresolved"
             }
-            try db.execute(sql: """
-                UPDATE links SET target_id = ?, status = ?
-                WHERE source_id = ? AND ordinal = ?
-                """, arguments: [targetID, status, link["source_id"] as String, link["ordinal"] as Int])
+            try update.execute(arguments: [
+                targetID,
+                status,
+                link["source_id"] as String,
+                link["ordinal"] as Int
+            ])
         }
+    }
+
+    private static func refreshLinkResolutions(in db: Database) throws {
+        let index = try makeLinkResolutionIndex(in: db)
+        let links = try Row.fetchAll(
+            db,
+            sql: "SELECT source_id, ordinal, raw_target FROM links"
+        )
+        try updateLinkResolutions(links, using: index, in: db)
         try db.execute(sql: """
             UPDATE notes
             SET has_unresolved_links = EXISTS (
@@ -802,14 +910,46 @@ public actor IndexActor: IndexQuerying {
             """)
     }
 
+    /// When a save keeps the note's path, filename, and title identities unchanged, no inbound
+    /// link can resolve differently. Resolve only the replaced outgoing links and update this
+    /// note's unresolved flag; identity-changing edits continue through the whole-vault path.
+    private static func refreshLinkResolutions(
+        forSourceID sourceID: String,
+        in db: Database
+    ) throws {
+        let index = try makeLinkResolutionIndex(in: db)
+        let links = try Row.fetchAll(
+            db,
+            sql: """
+                SELECT source_id, ordinal, raw_target
+                FROM links
+                WHERE source_id = ?
+                """,
+            arguments: [sourceID]
+        )
+        try updateLinkResolutions(links, using: index, in: db)
+        try db.execute(sql: """
+            UPDATE notes
+            SET has_unresolved_links = EXISTS (
+                SELECT 1 FROM links
+                WHERE links.source_id = notes.id AND links.status != 'resolved'
+            )
+            WHERE id = ?
+            """, arguments: [sourceID])
+    }
+
     private static let summarySelect = """
         SELECT id, path, title, tags_json, note_type, modified_at FROM notes
         """
 
     private static func summary(from row: Row) throws -> NoteSummary {
+        try summary(from: row, decoder: JSONDecoder())
+    }
+
+    private static func summary(from row: Row, decoder: JSONDecoder) throws -> NoteSummary {
         let path = try RelativePath(row["path"] as String)
         let tagsJSON: String = row["tags_json"]
-        let tags = Set(try JSONDecoder().decode([String].self, from: Data(tagsJSON.utf8)))
+        let tags = Set(try decoder.decode([String].self, from: Data(tagsJSON.utf8)))
         return NoteSummary(
             id: NoteID(rawValue: row["id"]),
             path: path,

@@ -51,6 +51,41 @@ public struct LivePreviewConcealment: Hashable, Sendable {
 
     public static let empty = LivePreviewConcealment(elements: [])
 
+    /// These expressions are immutable after construction. Reuse them instead of recompiling
+    /// ten patterns for every document restyle.
+    private enum Expressions {
+        static let heading = try! NSRegularExpression(
+            pattern: #"(?m)^(#{1,6}) (?=\S)"#
+        )
+        static let horizontalRule = try! NSRegularExpression(
+            pattern: #"(?m)^ {0,3}(-{3,}|\*{3,}|_{3,})[ \t]*$"#
+        )
+        static let inlineCode = try! NSRegularExpression(
+            pattern: #"`([^`\n]+)`"#
+        )
+        static let wikiLink = try! NSRegularExpression(
+            pattern: #"\[\[([^\]\n]+)\]\]"#
+        )
+        static let markdownLink = try! NSRegularExpression(
+            pattern: #"\[([^\]\n]*)\]\(([^)\n]*)\)"#
+        )
+        static let boldAsterisk = try! NSRegularExpression(
+            pattern: #"\*\*([^\s*][^*\n]*?[^\s*]|[^\s*])\*\*"#
+        )
+        static let boldUnderscore = try! NSRegularExpression(
+            pattern: #"__([^\s_][^_\n]*?[^\s_]|[^\s_])__"#
+        )
+        static let italicAsterisk = try! NSRegularExpression(
+            pattern: #"(?<![*\w])\*([^\s*][^*\n]*?[^\s*]|[^\s*])\*(?![*\w])"#
+        )
+        static let italicUnderscore = try! NSRegularExpression(
+            pattern: #"(?<![\w_])_([^\s_][^_\n]*?[^\s_]|[^\s_])_(?![\w_])"#
+        )
+        static let strikethrough = try! NSRegularExpression(
+            pattern: #"~~([^\s~][^~\n]*?[^\s~]|[^\s~])~~"#
+        )
+    }
+
     public init(elements: [Element]) {
         self.elements = elements.sorted { $0.range.location < $1.range.location }
         self.markers = elements
@@ -65,6 +100,23 @@ public struct LivePreviewConcealment: Hashable, Sendable {
         _ text: String,
         excluding exclusions: [NSRange] = [],
         inlineTokens: [InlineTokenDecoration] = []
+    ) -> LivePreviewConcealment {
+        scan(
+            text,
+            excluding: exclusions,
+            inlineTokens: inlineTokens,
+            reusing: nil
+        )
+    }
+
+    /// Module-internal fast path. The ranges come from a scan of this exact `text` in the same
+    /// styling pass; keeping the reuse seam internal prevents stale extension ranges from
+    /// becoming part of the public API.
+    static func scan(
+        _ text: String,
+        excluding exclusions: [NSRange],
+        inlineTokens: [InlineTokenDecoration] = [],
+        reusing styledRanges: [MarkdownHighlighter.StyledRange]?
     ) -> LivePreviewConcealment {
         let ns = text as NSString
         guard ns.length > 0 else { return .empty }
@@ -81,19 +133,23 @@ public struct LivePreviewConcealment: Hashable, Sendable {
             return overlaps(range, in: accepted)
         }
 
+        func isValidStyledRange(_ range: NSRange) -> Bool {
+            range.location != NSNotFound
+                && range.location >= 0
+                && range.length >= 0
+                && range.location <= ns.length
+                && range.length <= ns.length - range.location
+        }
+
         /// `claimsContent` is false for headings: they own only their `## ` prefix, so inline
         /// elements inside the title can still render.
         func collect(
-            _ pattern: String,
+            _ expression: NSRegularExpression,
             claimsContent: Bool = true,
             _ build: (NSTextCheckingResult) -> Element?
         ) {
-            guard let regex = try? NSRegularExpression(pattern: pattern) else {
-                assertionFailure("Invalid live-preview pattern: \(pattern)")
-                return
-            }
             var fresh: [NSRange] = []
-            regex.enumerateMatches(in: text, range: full) { match, _, _ in
+            expression.enumerateMatches(in: text, range: full) { match, _, _ in
                 guard let match, !overlapsExisting(match.range), let element = build(match) else { return }
                 elements.append(element)
                 fresh.append(claimsContent ? element.range : element.markers[0])
@@ -102,25 +158,64 @@ public struct LivePreviewConcealment: Hashable, Sendable {
         }
 
         // Headings conceal only the `## ` prefix; the title stays visible in heading type.
-        collect(#"(?m)^(#{1,6}) (?=\S)"#, claimsContent: false) { match in
-            let hashes = match.range(at: 1)
-            let marker = NSRange(location: hashes.location, length: hashes.length + 1)
-            var lineEnd = 0
-            var contentsEnd = 0
-            ns.getLineStart(nil, end: &lineEnd, contentsEnd: &contentsEnd, for: match.range)
-            let visible = NSRange(location: NSMaxRange(marker), length: contentsEnd - NSMaxRange(marker))
-            return Element(
-                range: NSRange(location: marker.location, length: contentsEnd - marker.location),
-                markers: [marker],
-                visible: visible,
-                kind: .heading(level: hashes.length)
-            )
+        if let styledRanges {
+            var fresh: [NSRange] = []
+            for styled in styledRanges {
+                guard case let .heading(level) = styled.kind,
+                      isValidStyledRange(styled.range),
+                      styled.range.location < ns.length,
+                      ns.character(at: styled.range.location) == 0x23
+                else { continue }
+                let marker = NSRange(location: styled.range.location, length: level + 1)
+                var lineEnd = 0
+                var contentsEnd = 0
+                ns.getLineStart(nil, end: &lineEnd, contentsEnd: &contentsEnd, for: styled.range)
+                let titleRange = NSRange(
+                    location: NSMaxRange(marker),
+                    length: contentsEnd - NSMaxRange(marker)
+                )
+                guard NSMaxRange(marker) < contentsEnd,
+                      ns.character(at: NSMaxRange(marker) - 1) == 0x20,
+                      ns.rangeOfCharacter(
+                        from: CharacterSet.whitespacesAndNewlines.inverted,
+                        options: [],
+                        range: titleRange
+                      ).location == titleRange.location,
+                      !overlapsExisting(marker)
+                else { continue }
+                elements.append(Element(
+                    range: NSRange(location: marker.location, length: contentsEnd - marker.location),
+                    markers: [marker],
+                    visible: NSRange(
+                        location: NSMaxRange(marker),
+                        length: contentsEnd - NSMaxRange(marker)
+                    ),
+                    kind: .heading(level: level)
+                ))
+                fresh.append(marker)
+            }
+            accepted = merge(accepted, fresh)
+        } else {
+            collect(Expressions.heading, claimsContent: false) { match in
+                let hashes = match.range(at: 1)
+                let marker = NSRange(location: hashes.location, length: hashes.length + 1)
+                var lineEnd = 0
+                var contentsEnd = 0
+                ns.getLineStart(nil, end: &lineEnd, contentsEnd: &contentsEnd, for: match.range)
+                let visible = NSRange(location: NSMaxRange(marker), length: contentsEnd - NSMaxRange(marker))
+                return Element(
+                    range: NSRange(location: marker.location, length: contentsEnd - marker.location),
+                    markers: [marker],
+                    visible: visible,
+                    kind: .heading(level: hashes.length)
+                )
+            }
         }
 
         // Thematic breaks (`---`, `***`, `___` and longer runs) conceal the whole line; the
         // layout manager draws a full-width divider in their place, as Obsidian does. Claiming
         // the line also keeps `***` runs out of the emphasis passes.
-        collect(#"(?m)^ {0,3}(-{3,}|\*{3,}|_{3,})[ \t]*$"#) { match in
+        collect(Expressions.horizontalRule) { match in
             Element(
                 range: match.range,
                 markers: [match.range],
@@ -130,7 +225,7 @@ public struct LivePreviewConcealment: Hashable, Sendable {
         }
 
         // Inline code wins over links/emphasis inside it, so it scans first among inline kinds.
-        collect(#"`([^`\n]+)`"#) { match in
+        collect(Expressions.inlineCode) { match in
             let inner = match.range(at: 1)
             return Element(
                 range: match.range,
@@ -144,8 +239,7 @@ public struct LivePreviewConcealment: Hashable, Sendable {
         }
 
         // `[[Target#Heading|Alias]]` shows the alias; `[[Target]]` shows the target.
-        collect(#"\[\[([^\]\n]+)\]\]"#) { match in
-            let inner = match.range(at: 1)
+        func wikiLinkElement(range: NSRange, inner: NSRange) -> Element {
             let innerText = ns.substring(with: inner)
             let target = innerText
                 .split(separator: "|").first.map(String.init)
@@ -155,33 +249,90 @@ public struct LivePreviewConcealment: Hashable, Sendable {
             var markers: [NSRange]
             if pipe.location != NSNotFound, NSMaxRange(pipe) < NSMaxRange(inner) {
                 visible = NSRange(location: NSMaxRange(pipe), length: NSMaxRange(inner) - NSMaxRange(pipe))
-                markers = [NSRange(location: match.range.location, length: visible.location - match.range.location)]
+                markers = [NSRange(location: range.location, length: visible.location - range.location)]
             } else {
                 visible = inner
-                markers = [NSRange(location: match.range.location, length: 2)]
+                markers = [NSRange(location: range.location, length: 2)]
             }
             markers.append(NSRange(location: NSMaxRange(inner), length: 2))
-            return Element(range: match.range, markers: markers, visible: visible, kind: .wikiLink(target: target))
+            return Element(range: range, markers: markers, visible: visible, kind: .wikiLink(target: target))
+        }
+
+        if let styledRanges {
+            var fresh: [NSRange] = []
+            for styled in styledRanges where styled.kind == .wikiLink {
+                guard isValidStyledRange(styled.range),
+                      !overlapsExisting(styled.range),
+                      styled.range.length >= 5
+                else { continue }
+                let inner = NSRange(
+                    location: styled.range.location + 2,
+                    length: styled.range.length - 4
+                )
+                let element = wikiLinkElement(range: styled.range, inner: inner)
+                elements.append(element)
+                fresh.append(element.range)
+            }
+            accepted = merge(accepted, fresh)
+        } else {
+            collect(Expressions.wikiLink) { match in
+                wikiLinkElement(range: match.range, inner: match.range(at: 1))
+            }
         }
 
         // `[text](destination)` shows the text.
-        collect(#"\[([^\]\n]*)\]\(([^)\n]*)\)"#) { match in
-            let label = match.range(at: 1)
+        func markdownLinkElement(
+            range: NSRange,
+            label: NSRange,
+            destination: NSRange
+        ) -> Element? {
             guard label.length > 0 else { return nil }
-            let destination = ns.substring(with: match.range(at: 2))
             return Element(
-                range: match.range,
+                range: range,
                 markers: [
-                    NSRange(location: match.range.location, length: 1),
-                    NSRange(location: NSMaxRange(label), length: NSMaxRange(match.range) - NSMaxRange(label))
+                    NSRange(location: range.location, length: 1),
+                    NSRange(location: NSMaxRange(label), length: NSMaxRange(range) - NSMaxRange(label))
                 ],
                 visible: label,
-                kind: .markdownLink(destination: destination)
+                kind: .markdownLink(destination: ns.substring(with: destination))
             )
         }
 
-        func delimited(_ pattern: String, markerLength: Int, kind: Kind) {
-            collect(pattern) { match in
+        if let styledRanges {
+            var fresh: [NSRange] = []
+            for styled in styledRanges where styled.kind == .markdownLink {
+                guard isValidStyledRange(styled.range), !overlapsExisting(styled.range) else { continue }
+                let separator = ns.range(of: "](", options: [], range: styled.range)
+                guard separator.location != NSNotFound else { continue }
+                let label = NSRange(
+                    location: styled.range.location + 1,
+                    length: separator.location - styled.range.location - 1
+                )
+                let destination = NSRange(
+                    location: NSMaxRange(separator),
+                    length: NSMaxRange(styled.range) - NSMaxRange(separator) - 1
+                )
+                guard let element = markdownLinkElement(
+                    range: styled.range,
+                    label: label,
+                    destination: destination
+                ) else { continue }
+                elements.append(element)
+                fresh.append(element.range)
+            }
+            accepted = merge(accepted, fresh)
+        } else {
+            collect(Expressions.markdownLink) { match in
+                markdownLinkElement(
+                    range: match.range,
+                    label: match.range(at: 1),
+                    destination: match.range(at: 2)
+                )
+            }
+        }
+
+        func delimited(_ expression: NSRegularExpression, markerLength: Int, kind: Kind) {
+            collect(expression) { match in
                 let inner = match.range(at: 1)
                 return Element(
                     range: match.range,
@@ -197,11 +348,11 @@ public struct LivePreviewConcealment: Hashable, Sendable {
 
         // CommonMark-ish boundaries: content cannot begin or end with whitespace, which also
         // keeps `* ` list bullets from pairing with a later asterisk on the line.
-        delimited(#"\*\*([^\s*][^*\n]*?[^\s*]|[^\s*])\*\*"#, markerLength: 2, kind: .bold)
-        delimited(#"__([^\s_][^_\n]*?[^\s_]|[^\s_])__"#, markerLength: 2, kind: .bold)
-        delimited(#"(?<![*\w])\*([^\s*][^*\n]*?[^\s*]|[^\s*])\*(?![*\w])"#, markerLength: 1, kind: .italic)
-        delimited(#"(?<![\w_])_([^\s_][^_\n]*?[^\s_]|[^\s_])_(?![\w_])"#, markerLength: 1, kind: .italic)
-        delimited(#"~~([^\s~][^~\n]*?[^\s~]|[^\s~])~~"#, markerLength: 2, kind: .strikethrough)
+        delimited(Expressions.boldAsterisk, markerLength: 2, kind: .bold)
+        delimited(Expressions.boldUnderscore, markerLength: 2, kind: .bold)
+        delimited(Expressions.italicAsterisk, markerLength: 1, kind: .italic)
+        delimited(Expressions.italicUnderscore, markerLength: 1, kind: .italic)
+        delimited(Expressions.strikethrough, markerLength: 2, kind: .strikethrough)
 
         // Extensions provide resolved, value-only token decorations. The core owns overlap
         // priority and defensive range validation so a malformed provider cannot conceal
@@ -401,34 +552,65 @@ public final class ConcealingLayoutManager: NSLayoutManager, NSLayoutManagerDele
 
     private func adjustRanges(forEditedRange newCharRange: NSRange, changeInLength delta: Int) {
         let oldRange = NSRange(location: newCharRange.location, length: newCharRange.length - delta)
-        markerRanges = Self.shift(markerRanges, pastEdit: oldRange, by: delta)
-        ruleRanges = Self.shift(ruleRanges, pastEdit: oldRange, by: delta)
-        inlineTokens = inlineTokens.compactMap { token in
+        Self.shift(&markerRanges, pastEdit: oldRange, by: delta)
+        Self.shift(&ruleRanges, pastEdit: oldRange, by: delta)
+
+        var tokenWriteIndex = 0
+        let tokenCount = inlineTokens.count
+        for tokenReadIndex in 0..<tokenCount {
+            let token = inlineTokens[tokenReadIndex]
             let range = NSRange(location: token.location, length: 1)
-            if NSMaxRange(range) <= oldRange.location { return token }
+            if NSMaxRange(range) <= oldRange.location {
+                inlineTokens[tokenWriteIndex] = token
+                tokenWriteIndex += 1
+                continue
+            }
             if range.location >= NSMaxRange(oldRange) {
-                return InlineToken(
+                inlineTokens[tokenWriteIndex] = InlineToken(
                     location: token.location + delta,
                     glyph: token.glyph,
                     fontName: token.fontName
                 )
+                tokenWriteIndex += 1
             }
             // The edit touched the carrier; drop it until the restyle recomputes elements.
-            return nil
+        }
+        if tokenWriteIndex < inlineTokens.count {
+            inlineTokens.removeSubrange(tokenWriteIndex...)
         }
         if revealedRange.location != NSNotFound, revealedRange.location >= NSMaxRange(oldRange) {
             revealedRange.location += delta
         }
     }
 
-    private static func shift(_ ranges: [NSRange], pastEdit oldRange: NSRange, by delta: Int) -> [NSRange] {
-        ranges.compactMap { range in
-            if NSMaxRange(range) <= oldRange.location { return range }
+    /// Drops ranges touched by an edit and shifts the remaining suffix in the array's existing
+    /// storage. A large note can contain tens of thousands of markers, so avoiding a new array
+    /// allocation on every keystroke materially reduces dispatch work without changing offsets.
+    private static func shift(
+        _ ranges: inout [NSRange],
+        pastEdit oldRange: NSRange,
+        by delta: Int
+    ) {
+        var writeIndex = 0
+        let rangeCount = ranges.count
+        for readIndex in 0..<rangeCount {
+            let range = ranges[readIndex]
+            if NSMaxRange(range) <= oldRange.location {
+                ranges[writeIndex] = range
+                writeIndex += 1
+                continue
+            }
             if range.location >= NSMaxRange(oldRange) {
-                return NSRange(location: range.location + delta, length: range.length)
+                ranges[writeIndex] = NSRange(
+                    location: range.location + delta,
+                    length: range.length
+                )
+                writeIndex += 1
             }
             // The edit touched this range; drop it until the restyle recomputes concealment.
-            return nil
+        }
+        if writeIndex < ranges.count {
+            ranges.removeSubrange(writeIndex...)
         }
     }
 

@@ -347,6 +347,17 @@ struct PENTA139SafeEditingTests {
         #expect(textView.string == "See [[Notes/Editor]]")
         #expect(textView.undoManager?.canUndo == true)
 
+        surface.replaceBuffer("See [[Not\n", preservingSelectionWhenPossible: false)
+        surface.selection = 10..<10
+        #expect(textView.unfinishedWikiLinkRange == nil)
+        #expect(textView.string == "See [[Not\n")
+
+        let legacyCR = "See [[Legacy\rTarget"
+        surface.replaceBuffer(legacyCR, preservingSelectionWhenPossible: false)
+        surface.selection = legacyCR.utf16.count..<legacyCR.utf16.count
+        let legacyRange = try #require(textView.unfinishedWikiLinkRange)
+        #expect((textView.string as NSString).substring(with: legacyRange) == "Legacy\rTarget")
+
         surface.replaceBuffer("- [ ] ship safely", preservingSelectionWhenPossible: false)
         surface.selection = 5..<5
         textView.toggleMarkdownTask(nil)

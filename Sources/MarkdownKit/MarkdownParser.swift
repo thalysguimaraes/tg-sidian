@@ -4,6 +4,23 @@ import Foundation
 public struct MarkdownParser: Sendable {
     private let instrument: any PerformanceInstrumenting
 
+    /// `NSRegularExpression` instances are immutable after construction, so keep one
+    /// process-wide copy instead of recompiling the grammar for every parsed note.
+    private enum Expressions {
+        static let wikiLink = try! NSRegularExpression(
+            pattern: #"\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]"#
+        )
+        static let task = try! NSRegularExpression(
+            pattern: #"^\s*[-*+]\s+\[([ xX-])\]\s+(.*)$"#
+        )
+        static let tag = try! NSRegularExpression(
+            pattern: #"(?<![\p{L}\p{N}_/])#([\p{L}\p{N}_/-]+)"#
+        )
+        static let slugSeparator = try! NSRegularExpression(
+            pattern: #"[^a-z0-9]+"#
+        )
+    }
+
     public init(instrument: any PerformanceInstrumenting = NoopPerformanceInstrument()) {
         self.instrument = instrument
     }
@@ -12,9 +29,13 @@ public struct MarkdownParser: Sendable {
         instrument.begin(.parse)
         defer { instrument.end(.parse) }
 
-        let normalized = markdown
-            .replacingOccurrences(of: "\r\n", with: "\n")
-            .replacingOccurrences(of: "\r", with: "\n")
+        // Most vault files already use LF. Keep that common case zero-copy while preserving
+        // byte-for-byte parser behavior for CRLF and legacy CR input.
+        let normalized = markdown.contains("\r")
+            ? markdown
+                .replacingOccurrences(of: "\r\n", with: "\n")
+                .replacingOccurrences(of: "\r", with: "\n")
+            : markdown
         let allLines = normalized.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
 
         var diagnostics: [MarkdownDiagnostic] = []
@@ -201,14 +222,9 @@ public struct MarkdownParser: Sendable {
     }
 
     private func parseWikiLinks(_ lines: [String], offset: Int) -> [WikiLink] {
-        let expression = try? NSRegularExpression(
-            pattern: #"\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]"#
-        )
-        guard let expression else { return [] }
-
         return lines.enumerated().flatMap { index, line -> [WikiLink] in
             let range = NSRange(line.startIndex..<line.endIndex, in: line)
-            return expression.matches(in: line, range: range).compactMap { match in
+            return Expressions.wikiLink.matches(in: line, range: range).compactMap { match in
                 guard let targetRange = Range(match.range(at: 1), in: line) else { return nil }
                 let heading = Range(match.range(at: 2), in: line).map { String(line[$0]) }
                 let alias = Range(match.range(at: 3), in: line).map { String(line[$0]) }
@@ -223,12 +239,9 @@ public struct MarkdownParser: Sendable {
     }
 
     private func parseTasks(_ lines: [String], offset: Int) -> [MarkdownTask] {
-        let expression = try? NSRegularExpression(pattern: #"^\s*[-*+]\s+\[([ xX-])\]\s+(.*)$"#)
-        guard let expression else { return [] }
-
         return lines.enumerated().compactMap { index, line in
             let range = NSRange(line.startIndex..<line.endIndex, in: line)
-            guard let match = expression.firstMatch(in: line, range: range),
+            guard let match = Expressions.task.firstMatch(in: line, range: range),
                   let markerRange = Range(match.range(at: 1), in: line),
                   let textRange = Range(match.range(at: 2), in: line)
             else { return nil }
@@ -243,9 +256,8 @@ public struct MarkdownParser: Sendable {
 
     private func parseTags(body: String, fields: [String: FrontMatterValue]) -> Set<String> {
         var tags = Set(fields["tags"]?.stringValues.map(normalizedTag) ?? [])
-        let expression = try? NSRegularExpression(pattern: #"(?<![\p{L}\p{N}_/])#([\p{L}\p{N}_/-]+)"#)
         let range = NSRange(body.startIndex..<body.endIndex, in: body)
-        expression?.matches(in: body, range: range).forEach { match in
+        Expressions.tag.matches(in: body, range: range).forEach { match in
             if let tagRange = Range(match.range(at: 1), in: body) {
                 tags.insert(normalizedTag(String(body[tagRange])))
             }
@@ -260,9 +272,15 @@ public struct MarkdownParser: Sendable {
     }
 
     private func slug(_ value: String) -> String {
-        value.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+        let folded = value
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
             .lowercased()
-            .replacingOccurrences(of: #"[^a-z0-9]+"#, with: "-", options: .regularExpression)
+        return Expressions.slugSeparator
+            .stringByReplacingMatches(
+                in: folded,
+                range: NSRange(location: 0, length: (folded as NSString).length),
+                withTemplate: "-"
+            )
             .trimmingCharacters(in: CharacterSet(charactersIn: "-"))
     }
 }

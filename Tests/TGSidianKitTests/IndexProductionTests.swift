@@ -112,6 +112,43 @@ struct IndexProductionTests {
         #expect(await index.search(SearchRequest(query: "Reconciled Gap")).first?.note.path.rawValue == "Gap.md")
     }
 
+    @Test("same-identity upserts refresh only outgoing links while identity changes refresh inbound links")
+    func targetedAndFullLinkRefreshesAreEquivalent() async throws {
+        let fixture = try TemporaryVault(emptyNamed: "targeted-link-refresh")
+        try fixture.directWrite("---\ntitle: Friendly\n---\nTarget body.\n", to: "Opaque.md")
+        try fixture.directWrite("---\ntitle: Other\n---\nOther body.\n", to: "Other.md")
+        try fixture.directWrite("---\ntitle: Source\n---\n[[Friendly]]\n", to: "Source.md")
+
+        let index = IndexActor()
+        _ = try await index.rebuild(from: fixture.vault)
+        let sourceID = NoteID(path: try RelativePath("Source.md"))
+        let opaqueID = NoteID(path: try RelativePath("Opaque.md"))
+        let otherID = NoteID(path: try RelativePath("Other.md"))
+
+        var sourceConnection = await index.connections().first { $0.source == sourceID }
+        #expect(sourceConnection?.target == opaqueID)
+        #expect(sourceConnection?.status == .resolved)
+
+        try fixture.directWrite("---\ntitle: Source\n---\n[[Other]]\n", to: "Source.md")
+        try await index.upsert(fixture.vault.read(try RelativePath("Source.md")))
+        sourceConnection = await index.connections().first { $0.source == sourceID }
+        #expect(sourceConnection?.rawTarget == "Other")
+        #expect(sourceConnection?.target == otherID)
+        #expect(sourceConnection?.status == .resolved)
+        #expect(await index.backlinks(to: otherID).map(\.source.id) == [sourceID])
+
+        try fixture.directWrite("---\ntitle: Source\n---\n[[Friendly]]\n", to: "Source.md")
+        try await index.upsert(fixture.vault.read(try RelativePath("Source.md")))
+        try fixture.directWrite("---\ntitle: Away\n---\nTarget body changed.\n", to: "Opaque.md")
+        try await index.upsert(fixture.vault.read(try RelativePath("Opaque.md")))
+
+        sourceConnection = await index.connections().first { $0.source == sourceID }
+        #expect(sourceConnection?.rawTarget == "Friendly")
+        #expect(sourceConnection?.target == nil)
+        #expect(sourceConnection?.status == .unresolved)
+        #expect(await index.backlinks(to: opaqueID).isEmpty)
+    }
+
     @Test("cancelled rebuild preserves the previous complete index and reports progress")
     func rebuildCancellationAndProgress() async throws {
         let fixture = try TemporaryVault(emptyNamed: "cancel")
@@ -181,6 +218,99 @@ struct IndexProductionTests {
         #expect(elapsed < .milliseconds(100))
     }
 
+    @Test(
+        "10k-note rebuild and same-identity upsert benchmark",
+        .enabled(
+            if: ProcessInfo.processInfo.environment["TG_PERFORMANCE_BENCHMARKS"] == "1",
+            "Set TG_PERFORMANCE_BENCHMARKS=1 for explicit performance runs."
+        )
+    )
+    func tenThousandNoteCorePerformance() async throws {
+        let fixture = try TemporaryVault(emptyNamed: "ten-thousand-core-performance")
+        try FixtureVaultGenerator.generate(at: fixture.rootURL, noteCount: 10_000, seed: 138)
+        let support = temporarySupport("core-performance")
+        defer { try? FileManager.default.removeItem(at: support) }
+        let index = IndexActor(storageURL: support.appendingPathComponent("index.sqlite"))
+        let clock = ContinuousClock()
+
+        let discoveryStart = clock.now
+        let paths = try await fixture.vault.listMarkdownFiles()
+        let discovery = Self.milliseconds(discoveryStart.duration(to: clock.now))
+        #expect(paths.count == 10_000)
+
+        let rebuildStart = clock.now
+        let report = try await index.rebuild(from: fixture.vault)
+        let rebuild = Self.milliseconds(rebuildStart.duration(to: clock.now))
+        #expect(report.indexedCount == 10_000)
+
+        let searchStart = clock.now
+        let hits = await index.search(SearchRequest(query: "Note 9999", limit: 20))
+        let search = Self.milliseconds(searchStart.duration(to: clock.now))
+        #expect(hits.first?.note.title == "Note 9999")
+
+        let allNotesStart = clock.now
+        let allNotes = await index.allNotes()
+        let allNotesElapsed = Self.milliseconds(allNotesStart.duration(to: clock.now))
+        #expect(allNotes.count == 10_000)
+
+        let benchmarkPath = try RelativePath("Folder-19/Note-9999.md")
+        var snapshots: [VaultFileSnapshot] = []
+        snapshots.reserveCapacity(8)
+        for sample in 0..<8 {
+            let target = sample.isMultiple(of: 2) ? 0 : 1
+            try fixture.directWrite(
+                """
+                ---
+                title: Note 9999
+                type: meeting
+                tags: [fixture, tag-11]
+                ---
+                # Note 9999
+
+                Incremental benchmark body \(sample).
+
+                [[Note \(target)]]
+                """,
+                to: benchmarkPath.rawValue
+            )
+            snapshots.append(try await fixture.vault.read(benchmarkPath))
+        }
+
+        var upsertSamples: [Double] = []
+        upsertSamples.reserveCapacity(snapshots.count)
+        for snapshot in snapshots {
+            let start = clock.now
+            try await index.upsert(snapshot)
+            upsertSamples.append(Self.milliseconds(start.duration(to: clock.now)))
+        }
+
+        let indexed = await index.indexedNote(id: NoteID(path: benchmarkPath))
+        let sourceID = NoteID(path: benchmarkPath)
+        let targetID = NoteID(path: try RelativePath("Folder-1/Note-1.md"))
+        let previousTargetID = NoteID(path: try RelativePath("Folder-0/Note-0.md"))
+        let sourceConnections = await index.connections().filter { $0.source == sourceID }
+        let targetBacklinks = await index.backlinks(to: targetID)
+        let previousTargetBacklinks = await index.backlinks(to: previousTargetID)
+        #expect(indexed?.parsed.title == "Note 9999")
+        #expect(indexed?.parsed.links.map(\.rawTarget) == ["Note 1"])
+        #expect(try await index.indexedNoteCount() == 10_000)
+        #expect(sourceConnections.count == 1)
+        #expect(sourceConnections.first?.rawTarget == "Note 1")
+        #expect(sourceConnections.first?.target == targetID)
+        #expect(sourceConnections.first?.status == .resolved)
+        #expect(targetBacklinks.contains { $0.source.id == sourceID })
+        #expect(!previousTargetBacklinks.contains { $0.source.id == sourceID })
+        #expect(await index.search(SearchRequest(query: "Incremental benchmark body 7")).first?.note.path == benchmarkPath)
+
+        print(
+            "TG-PERF 10k discovery_ms=\(Self.metric(discovery)) "
+                + "rebuild_ms=\(Self.metric(rebuild)) "
+                + "search_ms=\(Self.metric(search)) "
+                + "all_notes_ms=\(Self.metric(allNotesElapsed)) "
+                + "upsert_samples_ms=\(upsertSamples.map(Self.metric).joined(separator: ","))"
+        )
+    }
+
     private func acceptanceFixture() throws -> TemporaryVault {
         let url = Bundle.module.resourceURL!
             .appendingPathComponent("Fixtures/AcceptanceVault", isDirectory: true)
@@ -204,6 +334,16 @@ struct IndexProductionTests {
             result[relative] = try Data(contentsOf: url)
         }
         return result
+    }
+
+    private static func milliseconds(_ duration: Duration) -> Double {
+        let components = duration.components
+        return Double(components.seconds) * 1_000
+            + Double(components.attoseconds) / 1_000_000_000_000_000
+    }
+
+    private static func metric(_ value: Double) -> String {
+        String(format: "%.3f", value)
     }
 }
 

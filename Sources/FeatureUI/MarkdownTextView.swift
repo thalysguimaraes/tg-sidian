@@ -10,6 +10,23 @@ import SwiftUI
 public struct MarkdownHighlighter: Sendable {
     public init() {}
 
+    /// Foundation regexes are immutable after construction. Reusing them process-wide avoids
+    /// recompiling the same lexical grammar on every restyle.
+    private enum Expressions {
+        static let task = try! NSRegularExpression(
+            pattern: #"(?m)^\s*[-*+]\s+\[[ xX]\]"#
+        )
+        static let wikiLink = try! NSRegularExpression(
+            pattern: #"\[\[([^\]\n]+)\]\]"#
+        )
+        static let markdownLink = try! NSRegularExpression(
+            pattern: #"\[[^\]\n]*\]\([^)\n]*\)"#
+        )
+        static let tag = try! NSRegularExpression(
+            pattern: #"(?<![\w/])#[A-Za-z][\w/-]*"#
+        )
+    }
+
     public enum Kind: Hashable, Sendable {
         case heading(level: Int)
         case frontMatter
@@ -52,17 +69,37 @@ public struct MarkdownHighlighter: Sendable {
             }
         }
 
+        let nonWhitespace = CharacterSet.whitespacesAndNewlines.inverted
         var lineStart = 0
-        var openFence: (marker: String, location: Int)?
+        var openFence: (marker: unichar, location: Int)?
         while lineStart < ns.length {
-            let lineRange = ns.lineRange(for: NSRange(location: lineStart, length: 0))
-            let line = ns.substring(with: lineRange)
-            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
-
-            let fenceMarker: String? = if trimmed.hasPrefix("```") {
-                "```"
-            } else if trimmed.hasPrefix("~~~") {
-                "~~~"
+            var lineEnd = 0
+            var contentsEnd = 0
+            ns.getLineStart(
+                nil,
+                end: &lineEnd,
+                contentsEnd: &contentsEnd,
+                for: NSRange(location: lineStart, length: 0)
+            )
+            let lineRange = NSRange(location: lineStart, length: lineEnd - lineStart)
+            let contentRange = NSRange(location: lineStart, length: contentsEnd - lineStart)
+            let firstContent = ns.rangeOfCharacter(
+                from: nonWhitespace,
+                options: [],
+                range: contentRange
+            )
+            let markerLocation = firstContent.location
+            let marker: unichar? = if markerLocation != NSNotFound,
+                                      contentsEnd - markerLocation >= 3 {
+                ns.character(at: markerLocation)
+            } else {
+                nil
+            }
+            let fenceMarker: unichar? = if let marker,
+                                           (marker == 0x60 || marker == 0x7E),
+                                           ns.character(at: markerLocation + 1) == marker,
+                                           ns.character(at: markerLocation + 2) == marker {
+                marker
             } else {
                 nil
             }
@@ -80,15 +117,27 @@ public struct MarkdownHighlighter: Sendable {
                 }
             } else if let fenceMarker {
                 openFence = (fenceMarker, lineRange.location)
-            } else if trimmed.hasPrefix("#") {
-                let level = trimmed.prefix(while: { $0 == "#" }).count
-                if level <= 6, trimmed.dropFirst(level).first == " " {
+            } else if markerLocation != NSNotFound, ns.character(at: markerLocation) == 0x23 {
+                var titleStart = markerLocation
+                while titleStart < contentsEnd, ns.character(at: titleStart) == 0x23 {
+                    titleStart += 1
+                }
+                let level = titleStart - markerLocation
+                let titleContentRange = NSRange(
+                    location: min(contentsEnd, titleStart + 1),
+                    length: max(0, contentsEnd - min(contentsEnd, titleStart + 1))
+                )
+                if (1...6).contains(level),
+                   titleStart < contentsEnd,
+                   ns.character(at: titleStart) == 0x20,
+                   ns.rangeOfCharacter(from: nonWhitespace, options: [], range: titleContentRange).location
+                    != NSNotFound {
                     result.append(StyledRange(range: lineRange, kind: .heading(level: level)))
                 }
             }
 
-            lineStart = NSMaxRange(lineRange)
-            if lineRange.length == 0 { break }
+            guard lineEnd > lineStart else { break }
+            lineStart = lineEnd
         }
         if let openFence {
             result.append(StyledRange(
@@ -97,20 +146,19 @@ public struct MarkdownHighlighter: Sendable {
             ))
         }
 
-        result.append(contentsOf: matches(
-            in: ns,
-            pattern: #"(?m)^\s*[-*+]\s+\[[ xX]\]"#,
-            kind: .task
-        ))
-        result.append(contentsOf: matches(in: ns, pattern: #"\[\[[^\]\n]+\]\]"#, kind: .wikiLink))
-        result.append(contentsOf: matches(in: ns, pattern: #"\[[^\]\n]*\]\([^)\n]*\)"#, kind: .markdownLink))
-        result.append(contentsOf: matches(in: ns, pattern: #"(?<![\w/])#[A-Za-z][\w/-]*"#, kind: .tag))
+        result.append(contentsOf: matches(in: ns, expression: Expressions.task, kind: .task))
+        result.append(contentsOf: matches(in: ns, expression: Expressions.wikiLink, kind: .wikiLink))
+        result.append(contentsOf: matches(in: ns, expression: Expressions.markdownLink, kind: .markdownLink))
+        result.append(contentsOf: matches(in: ns, expression: Expressions.tag, kind: .tag))
         return result
     }
 
-    private func matches(in ns: NSString, pattern: String, kind: Kind) -> [StyledRange] {
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
-        return regex
+    private func matches(
+        in ns: NSString,
+        expression: NSRegularExpression,
+        kind: Kind
+    ) -> [StyledRange] {
+        expression
             .matches(in: ns as String, range: NSRange(location: 0, length: ns.length))
             .map { StyledRange(range: $0.range, kind: kind) }
     }
@@ -118,8 +166,24 @@ public struct MarkdownHighlighter: Sendable {
     /// The wiki-link target under `location`, if any. Used for click-to-follow (SPEC §6.3).
     public func wikiLinkTarget(in text: String, at location: Int) -> String? {
         let ns = text as NSString
-        guard let regex = try? NSRegularExpression(pattern: #"\[\[([^\]\n]+)\]\]"#) else { return nil }
-        for match in regex.matches(in: text, range: NSRange(location: 0, length: ns.length)) {
+        guard location >= 0,
+              location < ns.length,
+              ns.character(at: location) != 0x0A
+        else { return nil }
+        let before = ns.range(
+            of: "\n",
+            options: .backwards,
+            range: NSRange(location: 0, length: location)
+        )
+        let start = before.location == NSNotFound ? 0 : NSMaxRange(before)
+        let after = ns.range(
+            of: "\n",
+            options: [],
+            range: NSRange(location: location, length: ns.length - location)
+        )
+        let end = after.location == NSNotFound ? ns.length : after.location
+        let lfDelimitedRange = NSRange(location: start, length: end - start)
+        for match in Expressions.wikiLink.matches(in: text, range: lfDelimitedRange) {
             guard NSLocationInRange(location, match.range), match.numberOfRanges > 1 else { continue }
             let inner = ns.substring(with: match.range(at: 1))
             // `[[Note#Heading|Alias]]` — the target is the part before `#` or `|`.
@@ -190,7 +254,7 @@ public final class MarkdownTextView: NSTextView {
         }
         manager.setConcealedMarkers(concealment.markers, rules: rules, tokens: tokens)
         manager.updateRevealedRange(revealTargetRange)
-        applyLinkAttributes(in: NSRange(location: 0, length: (string as NSString).length))
+        applyLinkAttributes(in: NSRange(location: 0, length: textStorage?.length ?? 0))
     }
 
     /// Moves the reveal to the caret's current line. Cheap: only the previous and new lines
@@ -266,7 +330,7 @@ public final class MarkdownTextView: NSTextView {
         var caret = rect
         caret.size.height = height
         if let manager = layoutManager {
-            let caretIndex = min(selectedRange().location, max(0, (string as NSString).length - 1))
+            let caretIndex = min(selectedRange().location, max(0, (textStorage?.length ?? 0) - 1))
             let glyphIndex = manager.glyphIndexForCharacter(at: caretIndex)
             if glyphIndex < manager.numberOfGlyphs {
                 let fragment = manager.lineFragmentRect(forGlyphAt: glyphIndex, effectiveRange: nil)
@@ -410,17 +474,31 @@ public final class MarkdownTextView: NSTextView {
     /// The completion popup, keyboard navigation, acceptance, accessibility, and Undo remain the
     /// native responder-chain implementation.
     public var unfinishedWikiLinkRange: NSRange? {
+        guard let storage = textStorage else { return nil }
+        let ns = storage.mutableString
         let caret = selectedRange().location
-        guard caret <= (string as NSString).length else { return nil }
-        let prefix = (string as NSString).substring(to: caret) as NSString
-        let opening = prefix.range(of: "[[", options: .backwards)
+        guard caret <= storage.length else { return nil }
+        let previousLF = ns.range(
+            of: "\n",
+            options: .backwards,
+            range: NSRange(location: 0, length: caret)
+        )
+        let lineStart = previousLF.location == NSNotFound ? 0 : NSMaxRange(previousLF)
+        let prefixRange = NSRange(
+            location: lineStart,
+            length: caret - lineStart
+        )
+        let opening = ns.range(of: "[[", options: .backwards, range: prefixRange)
         guard opening.location != NSNotFound else { return nil }
         let start = NSMaxRange(opening)
-        let fragment = prefix.substring(from: start)
-        guard !fragment.contains("]]"),
-              !fragment.contains("\n"),
-              !fragment.contains("#"),
-              !fragment.contains("|")
+        let fragmentRange = NSRange(location: start, length: caret - start)
+        guard ns.range(of: "]]", options: [], range: fragmentRange).location == NSNotFound,
+              ns.range(of: "\n", options: [], range: fragmentRange).location == NSNotFound,
+              ns.rangeOfCharacter(
+                from: CharacterSet(charactersIn: "#|"),
+                options: [],
+                range: fragmentRange
+              ).location == NSNotFound
         else { return nil }
         return NSRange(location: start, length: caret - start)
     }
@@ -753,8 +831,10 @@ public struct EditorHostView: NSViewRepresentable {
 
         public func textDidChange(_ notification: Notification) {
             guard let textView = notification.object as? MarkdownTextView else { return }
-            surface.noteUserEdit()
-            document.caretOffset = textView.selectedRange().location
+            let selection = textView.selectedRange()
+            let text = textView.string
+            surface.noteUserEdit(text: text, selection: selection)
+            document.caretOffset = selection.location
 
             // Marked text is transient input-method state. Do not autosave or restyle it because
             // replacing attributes can disrupt the candidate session.
@@ -765,13 +845,13 @@ public struct EditorHostView: NSViewRepresentable {
                 return
             }
 
-            document.bufferDidChange(to: textView.string)
+            document.bufferDidChange(to: text)
             appliedRevision = document.revision
             surface.markSynchronized()
             scheduleRestyleAfterEdit()
 
             if let completionRange = textView.unfinishedWikiLinkRange {
-                let prefix = (textView.string as NSString).substring(with: completionRange)
+                let prefix = (text as NSString).substring(with: completionRange)
                 if !wikiLinkCompletions(prefix).isEmpty {
                     DispatchQueue.main.async { [weak textView] in textView?.complete(nil) }
                 }

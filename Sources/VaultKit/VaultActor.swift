@@ -28,6 +28,7 @@ public actor VaultActor: VaultServicing {
     private let instrument: any PerformanceInstrumenting
     private let hooks: AtomicWriteHooks
     private let fileManager = FileManager.default
+    private static let lowercaseHexDigits = Array("0123456789abcdef".utf8)
 
     public init(
         rootURL: URL,
@@ -86,7 +87,6 @@ public actor VaultActor: VaultServicing {
             guard (values.fileSize ?? 0) <= maximumIndexedFileSize else { continue }
 
             do {
-                try root.ensureContained(url)
                 paths.append(try root.relativePath(for: url))
             } catch {
                 continue
@@ -124,7 +124,6 @@ public actor VaultActor: VaultServicing {
         let values = try url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey, .fileSizeKey])
         guard values.isRegularFile == true || values.isSymbolicLink == true else { return false }
         guard (values.fileSize ?? 0) <= maximumIndexedFileSize else { return false }
-        try root.ensureContained(url)
         return true
     }
 
@@ -402,7 +401,13 @@ public actor VaultActor: VaultServicing {
     private func fingerprint(url: URL, data: Data) throws -> FileFingerprint {
         let attributes = try fileManager.attributesOfItem(atPath: url.path)
         let modificationDate = attributes[.modificationDate] as? Date ?? .distantPast
-        let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        var digestBytes: [UInt8] = []
+        digestBytes.reserveCapacity(64)
+        for byte in SHA256.hash(data: data) {
+            digestBytes.append(Self.lowercaseHexDigits[Int(byte >> 4)])
+            digestBytes.append(Self.lowercaseHexDigits[Int(byte & 0x0F)])
+        }
+        let digest = String(decoding: digestBytes, as: UTF8.self)
         return FileFingerprint(byteCount: data.count, modificationDate: modificationDate, contentHash: digest)
     }
 
