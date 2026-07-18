@@ -1,0 +1,383 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		295AE4EF5F7249825629317D /* FeatureUI in Frameworks */ = {isa = PBXBuildFile; productRef = CEC13CD3353B77767F6AD089 /* FeatureUI */; };
+		532D19AB3992DD25CB9C0794 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = CDC06C812E7AB7BF09FFD63E /* AppIcon.icon */; };
+		5FCC279D02E302787D8BC93C /* TGSidianApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F4E3392836982C56273AD97 /* TGSidianApp.swift */; };
+		72F63BDF612804B9E1F4AA99 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B522F0A5D93376816793C6B7 /* Assets.xcassets */; };
+		C1E8CE1B9A4AD48825EEAF29 /* SecurityKit in Frameworks */ = {isa = PBXBuildFile; productRef = A02D491BB724859709F8F637 /* SecurityKit */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		2C3C0F599800CA16362835E7 /* TGSidian.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TGSidian.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		5F4E3392836982C56273AD97 /* TGSidianApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TGSidianApp.swift; sourceTree = "<group>"; };
+		803F225BEBE8AA9E7278CEB3 /* tg-sidian */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "tg-sidian"; path = .; sourceTree = SOURCE_ROOT; };
+		B522F0A5D93376816793C6B7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		CDC06C812E7AB7BF09FFD63E /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D599EE119FCB6194EA0EADFD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				295AE4EF5F7249825629317D /* FeatureUI in Frameworks */,
+				C1E8CE1B9A4AD48825EEAF29 /* SecurityKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		6594927DC42CDAC61476494D /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				803F225BEBE8AA9E7278CEB3 /* tg-sidian */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
+		A0B62D11E5F0A32BC08D9F01 = {
+			isa = PBXGroup;
+			children = (
+				E768EB95E8713B9CD8801A0F /* App */,
+				6594927DC42CDAC61476494D /* Packages */,
+				E0CADD8BBAA5EE11A31E3A79 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		E0CADD8BBAA5EE11A31E3A79 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2C3C0F599800CA16362835E7 /* TGSidian.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		E768EB95E8713B9CD8801A0F /* App */ = {
+			isa = PBXGroup;
+			children = (
+				FD9E49C5445E737082E164C2 /* Resources */,
+				5F4E3392836982C56273AD97 /* TGSidianApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		FD9E49C5445E737082E164C2 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				CDC06C812E7AB7BF09FFD63E /* AppIcon.icon */,
+				B522F0A5D93376816793C6B7 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		BD87430B1EF33E3A7AB62508 /* TGSidian */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BE0DF7C81773BC197CE82702 /* Build configuration list for PBXNativeTarget "TGSidian" */;
+			buildPhases = (
+				C35EF1EBF71A4E9E38E48647 /* Sources */,
+				CC05DD8C2C334D2830F8FB71 /* Resources */,
+				D599EE119FCB6194EA0EADFD /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TGSidian;
+			packageProductDependencies = (
+				CEC13CD3353B77767F6AD089 /* FeatureUI */,
+				A02D491BB724859709F8F637 /* SecurityKit */,
+			);
+			productName = TGSidian;
+			productReference = 2C3C0F599800CA16362835E7 /* TGSidian.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		C9B840B6858F6D681BA0EF7B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					BD87430B1EF33E3A7AB62508 = {
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = CFBE4ECA7FEFFCD39AEEDC84 /* Build configuration list for PBXProject "TGSidian" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = A0B62D11E5F0A32BC08D9F01;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				8753DDA84DF8625F9686B160 /* XCLocalSwiftPackageReference "." */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = E0CADD8BBAA5EE11A31E3A79 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				BD87430B1EF33E3A7AB62508 /* TGSidian */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		CC05DD8C2C334D2830F8FB71 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				532D19AB3992DD25CB9C0794 /* AppIcon.icon in Resources */,
+				72F63BDF612804B9E1F4AA99 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		C35EF1EBF71A4E9E38E48647 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5FCC279D02E302787D8BC93C /* TGSidianApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		99C3DEB4652550D36B875A44 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/Resources/TGSidian.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readwrite;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "design.thalys.tg-sidian";
+				PRODUCT_MODULE_NAME = TGSidianApp;
+				PRODUCT_NAME = "tg-sidian";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		9A4F76D791D6BF25A26C6799 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		D56C6432BCDEE0C60842704F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = App/Resources/TGSidian.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_APP_SANDBOX = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SELECTED_FILES = readwrite;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "design.thalys.tg-sidian";
+				PRODUCT_MODULE_NAME = TGSidianApp;
+				PRODUCT_NAME = "tg-sidian";
+				SDKROOT = macosx;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		ED8902BB01BEC1C87C9C846E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		BE0DF7C81773BC197CE82702 /* Build configuration list for PBXNativeTarget "TGSidian" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D56C6432BCDEE0C60842704F /* Debug */,
+				99C3DEB4652550D36B875A44 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		CFBE4ECA7FEFFCD39AEEDC84 /* Build configuration list for PBXProject "TGSidian" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				9A4F76D791D6BF25A26C6799 /* Debug */,
+				ED8902BB01BEC1C87C9C846E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		8753DDA84DF8625F9686B160 /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = .;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A02D491BB724859709F8F637 /* SecurityKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SecurityKit;
+		};
+		CEC13CD3353B77767F6AD089 /* FeatureUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = FeatureUI;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = C9B840B6858F6D681BA0EF7B /* Project object */;
+}

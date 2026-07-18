@@ -1,0 +1,97 @@
+name: Release CI
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package-macos-app:
+    name: Test and package macOS app
+    # Package.swift requires Swift tools 6.2. Pin both the runner generation and Xcode so a
+    # hosted-image default change cannot make the manifest unparseable before tests start.
+    runs-on: macos-26
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Select Xcode 26.6
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "26.6"
+
+      - name: Verify Swift 6.2 or newer
+        run: |
+          set -euo pipefail
+          version="$(swift --version)"
+          printf '%s\n' "$version"
+          python3 -c 'import re, sys; match = re.search(r"Swift version (\d+)\.(\d+)", sys.argv[1]); assert match and tuple(map(int, match.groups())) >= (6, 2), "Swift 6.2+ is required"' "$version"
+
+      - name: Run test suite
+        run: swift test
+
+      - name: Build release application bundle
+        env:
+          APP_PATH: ${{ runner.temp }}/tg-sidian.app
+        run: Scripts/build-local-app.sh "$APP_PATH" release
+
+      - name: Validate application bundle
+        env:
+          APP_PATH: ${{ runner.temp }}/tg-sidian.app
+        run: |
+          set -euo pipefail
+
+          INFO_PLIST="$APP_PATH/Contents/Info.plist"
+          EXECUTABLE="$APP_PATH/Contents/MacOS/tg-sidian"
+          APP_ICON="$APP_PATH/Contents/Resources/AppIcon.icns"
+          ENTITLEMENTS="$(mktemp)"
+          trap 'rm -f "$ENTITLEMENTS"' EXIT
+
+          test -d "$APP_PATH"
+          test -x "$EXECUTABLE"
+          test -f "$APP_ICON"
+          plutil -lint "$INFO_PLIST"
+
+          require_plist_key() {
+            local key="$1"
+            plutil -extract "$key" raw -o - "$INFO_PLIST" >/dev/null
+          }
+
+          for key in \
+            CFBundleExecutable \
+            CFBundleIconFile \
+            CFBundleIdentifier \
+            CFBundlePackageType \
+            CFBundleShortVersionString \
+            CFBundleVersion \
+            LSMinimumSystemVersion; do
+            require_plist_key "$key"
+          done
+
+          test "$(plutil -extract CFBundleExecutable raw -o - "$INFO_PLIST")" = "tg-sidian"
+          test "$(plutil -extract CFBundlePackageType raw -o - "$INFO_PLIST")" = "APPL"
+
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          signature_details="$(codesign --display --verbose=4 "$APP_PATH" 2>&1)"
+          grep -Fqx 'Signature=adhoc' <<<"$signature_details"
+
+          codesign --display --entitlements :- "$APP_PATH" >"$ENTITLEMENTS" 2>/dev/null
+          for entitlement in \
+            com.apple.security.app-sandbox \
+            com.apple.security.files.bookmarks.app-scope \
+            com.apple.security.files.user-selected.read-write; do
+            test "$(/usr/libexec/PlistBuddy -c "Print :$entitlement" "$ENTITLEMENTS")" = "true"
+          done
+
+      - name: Upload macOS app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tg-sidian-macos-app
+          path: ${{ runner.temp }}/tg-sidian.app
+          if-no-files-found: error
+          retention-days: 14
