@@ -13,12 +13,12 @@
 
 ## Repository and governance
 
-- [ ] Publish from a fresh/scrubbed Git history; earlier private commits contain personal integrations.
-- [ ] Verify the final public history, not only `HEAD`, contains no personal integration source or identifiers.
+- [x] Publish from a fresh/scrubbed Git history; earlier private commits remain in a separate private repository.
+- [x] Verify the final public history, not only `HEAD`, contains no personal integration source or identifiers.
 - [x] Choose and add the project `LICENSE` before making the repository public.
-- [ ] Enable GitHub private vulnerability reporting.
-- [ ] Protect `main` and require the CI workflow.
-- [ ] Confirm the public issue tracker and discussion policy.
+- [x] Enable GitHub private vulnerability reporting.
+- [x] Protect `main` and require the CI workflow.
+- [x] Confirm the public issue tracker and discussion policy.
 - [ ] Add repository topics, description, social preview, and release notes.
 
 ## Release
