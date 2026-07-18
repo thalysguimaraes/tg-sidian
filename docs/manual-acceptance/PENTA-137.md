@@ -94,7 +94,7 @@ Expected: body, links, tags, front matter, and code restyle immediately with dyn
 2. Scroll to several positions, select text, type, undo, run Find, and return to the top.
 3. Note the harness-reported model-load time.
 
-Expected: no beachball/crash or source corruption. CI's deterministic load+style budget is 5 seconds; the recorded machine median is 158.37 ms. The automated keystroke-dispatch p95 range is 1.60–1.90 ms against the 16 ms release-machine budget; shared CI runners use a 40 ms regression ceiling to account for scheduler noise. Smoothness, scrolling, and final paint feel remain manual release checks.
+Expected: no beachball/crash or source corruption. CI's deterministic load+style budget is 5 seconds; the recorded machine median is 158.37 ms. The automated keystroke-dispatch p95 range is 1.60–1.90 ms against the 16 ms release-machine budget. Shared CI runners record this latency metric without gating because scheduler variance overwhelms the interaction budget. Smoothness, scrolling, and final paint feel remain manual release checks.
 
 ### 8. Wiki link, task, code fence, focus, and external refresh
 
