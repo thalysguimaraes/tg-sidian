@@ -1,10 +1,7 @@
 <div align="center">
-  <img src="docs/assets/tg-sidian-icon.png" width="128" height="128" alt="tg-sidian app icon">
-
-  <h1>tg-sidian</h1>
+  <h1><img src="docs/assets/tg-sidian-icon.png" width="128" height="128" alt="tg-sidian app icon"><br>tg-sidian</h1>
 
   <p><strong>A fast, native macOS workspace for your Markdown vault.</strong></p>
-  <p>Open a folder, write in plain Markdown, and keep full ownership of every note.</p>
 
   <p>
     <a href="https://github.com/thalysguimaraes/tg-sidian/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/thalysguimaraes/tg-sidian/actions/workflows/ci.yml/badge.svg"></a>
@@ -20,21 +17,58 @@ account, or cloud service required.
 > **Early release:** tg-sidian is under active development. Back up important vaults
 > and review the [known scope](#current-scope) before making it your primary editor.
 
-## Highlights
+## How it works
 
-- **Native macOS experience** — a focused three-pane workspace designed for the Mac.
-- **Your files stay yours** — canonical Markdown remains the source of truth.
-- **Fast local search** — a disposable SQLite/FTS5 index can always be rebuilt from
-  the vault.
-- **Safe editing** — atomic writes, external-change detection, recovery journaling,
-  and conflict handling help prevent silent data loss.
-- **Connected notes** — wiki links, backlinks, tags, daily notes, and a bounded local
-  graph are built in.
-- **Thoughtful preferences** — appearance, editor behavior, files and links, sidebar,
-  daily notes, hotkeys, and extension host settings live in one native settings
-  window.
-- **Sandboxed by default** — tg-sidian only receives access to folders you explicitly
-  choose.
+The Markdown vault is always the source of truth. tg-sidian receives sandboxed access
+only to a folder you choose, reads and writes the files in place, and stores its own
+rebuildable or machine-specific state outside that folder.
+
+```mermaid
+flowchart LR
+    U["Native workspace<br/>SwiftUI + AppKit"]
+    V[("Markdown vault<br/>notes · folders · attachments")]
+    I[("Local index<br/>search · backlinks · tags · graph")]
+    R[("Recovery journal<br/>conflict-safe writes")]
+    S[("App support<br/>bookmark · preferences · workspace state")]
+
+    U <-->|"read · edit · navigate"| V
+    V -->|"index and reconcile"| I
+    I -->|"fast derived views"| U
+    U -->|"atomic save"| R
+    R -->|"verified replacement"| V
+    S -->|"restore access and layout"| U
+```
+
+Opening a vault starts a filesystem scan and builds a local SQLite/FTS5 index. Search,
+backlinks, tags, and graph views read from that derived index; deleting it never
+deletes or changes a note because it can be regenerated from Markdown.
+
+Edits stay canonical Markdown. Saves use atomic replacement and compare the file
+revision first, while a recovery journal protects pending work from interrupted
+writes. If another app changes an open note, tg-sidian reloads a clean buffer or asks
+you to resolve the conflict instead of silently overwriting either version.
+
+Security-scoped bookmarks let macOS restore access to previously selected vaults.
+Application Support holds only machine-local preferences and workspace state—not
+vault content. Optional add-ons integrate through the neutral `ExtensionSDK`; they
+remain outside the core editor and receive only explicitly declared capabilities.
+
+The package follows the same boundaries:
+
+| Module | Responsibility |
+| --- | --- |
+| `AppCore` | Shared models, preferences, protocols, and recovery contracts |
+| `MarkdownKit` | Front matter, headings, tags, tasks, and wiki-link parsing |
+| `VaultKit` | Contained filesystem access, atomic writes, moves, and daily notes |
+| `IndexKit` | GRDB-backed SQLite/FTS5 indexing and filesystem reconciliation |
+| `GraphKit` | Bounded graph extraction and deterministic layout |
+| `SecurityKit` | Sandbox bookmark persistence |
+| `FeatureUI` | Native workspace, editor, settings, backlinks, and graph |
+| `ExtensionSDK` | Neutral host interfaces for separately maintained add-ons |
+
+The only runtime dependency is
+[GRDB.swift 7.11.1](https://github.com/groue/GRDB.swift/releases/tag/v7.11.1),
+pinned exactly for reproducible index behavior.
 
 ## Requirements
 
@@ -71,32 +105,6 @@ Scripts/build-local-app.sh .artifacts/tg-sidian-release.app release
 The checked-in `TGSidian.xcodeproj` is ready to open directly. `project.yml` is its
 XcodeGen source of truth; XcodeGen is only needed when changing the target structure.
 
-## How it works
-
-tg-sidian separates durable user data from disposable app state:
-
-| Layer | Responsibility |
-| --- | --- |
-| Markdown vault | Notes, folders, attachments, and links you own |
-| App support | Security-scoped bookmark and per-vault workspace preferences |
-| Local index | Rebuildable search, backlinks, tags, and graph data |
-| Recovery journal | Protection around interrupted or conflicting writes |
-
-The package keeps module boundaries explicit:
-
-- `AppCore` — shared models, preferences, protocols, and recovery contracts
-- `MarkdownKit` — front matter, headings, tags, tasks, and wiki-link parsing
-- `VaultKit` — contained filesystem access, atomic writes, moves, and daily notes
-- `IndexKit` — GRDB-backed SQLite/FTS5 indexing and filesystem reconciliation
-- `GraphKit` — bounded graph extraction and deterministic layout
-- `SecurityKit` — sandbox bookmark persistence
-- `FeatureUI` — the native workspace, editor, settings, backlinks, and graph
-- `ExtensionSDK` — neutral, opt-in host interfaces for separately maintained add-ons
-
-The only runtime dependency is
-[GRDB.swift 7.11.1](https://github.com/groue/GRDB.swift/releases/tag/v7.11.1),
-pinned exactly for reproducible index behavior.
-
 ## Current scope
 
 The first public release focuses on the core local-vault workflow: choosing and
@@ -122,9 +130,3 @@ release checklist is tracked in
 ## License
 
 tg-sidian is available under the [MIT License](LICENSE).
-
----
-
-<div align="center">
-  Built for people who want a beautiful native editor without giving up plain files.
-</div>
