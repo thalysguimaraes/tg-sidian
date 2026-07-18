@@ -13,9 +13,6 @@ swift build --product editor-engine-harness
 cat <<'EOF'
 
 Automated validation passed.
-Run the manual-only checks with:
+Launch the isolated manual harness with:
   swift run editor-engine-harness
-
-Checklist and expected results:
-  docs/manual-acceptance/PENTA-137.md
 EOF

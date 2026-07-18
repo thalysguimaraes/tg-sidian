@@ -8,3 +8,10 @@ Fixtures/Generated/
 # Local agent residue
 .pi/
 .analysis/
+
+# Local product notes and planning
+/docs/
+/SPEC.md
+
+# Accidental Node package metadata (this is a Swift project)
+/package-lock.json

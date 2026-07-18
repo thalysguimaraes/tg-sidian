@@ -273,13 +273,13 @@ struct EditorEngineValidationTests {
         )
         let host = try String(
             contentsOf: root.appendingPathComponent(
-                "Packages/TGSidianKit/Sources/FeatureUI/MarkdownTextView.swift"
+                "Sources/FeatureUI/MarkdownTextView.swift"
             ),
             encoding: .utf8
         )
         let adapter = try String(
             contentsOf: root.appendingPathComponent(
-                "Packages/TGSidianKit/Sources/FeatureUI/EditorSurfaceAdapter.swift"
+                "Sources/FeatureUI/EditorSurfaceAdapter.swift"
             ),
             encoding: .utf8
         )

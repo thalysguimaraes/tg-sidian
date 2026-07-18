@@ -47,7 +47,7 @@ private struct HarnessRootView: View {
 private struct EditorHarnessView: View {
     let context: HarnessContext
     @State private var surface = NativeEditorSurfaceAdapter()
-    @State private var status = "Ready — work through docs/manual-acceptance/PENTA-137.md"
+    @State private var status = "Ready — choose a fixture and exercise the native editor"
     @State private var focusStatus = "not focused"
     @State private var operationInFlight = false
 

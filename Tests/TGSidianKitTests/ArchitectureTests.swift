@@ -11,7 +11,7 @@ struct ArchitectureTests {
     @Test("local module imports point inward and AppCore imports no sibling module")
     func dependencyDirection() throws {
         let root = repositoryRoot()
-        let sources = root.appendingPathComponent("Packages/TGSidianKit/Sources")
+        let sources = root.appendingPathComponent("Sources")
         let localModules: Set<String> = [
             "AppCore", "InstrumentationKit", "SecurityKit", "MarkdownKit", "VaultKit",
             "IndexKit", "GraphKit", "ExtensionSDK", "FeatureUI", "TestSupport"
@@ -56,11 +56,11 @@ struct ArchitectureTests {
     func designBackedNavigation() throws {
         let root = repositoryRoot()
         let sidebar = try String(
-            contentsOf: root.appendingPathComponent("Packages/TGSidianKit/Sources/FeatureUI/SidebarView.swift"),
+            contentsOf: root.appendingPathComponent("Sources/FeatureUI/SidebarView.swift"),
             encoding: .utf8
         )
         let routes = try String(
-            contentsOf: root.appendingPathComponent("Packages/TGSidianKit/Sources/FeatureUI/VaultSessionModel.swift"),
+            contentsOf: root.appendingPathComponent("Sources/FeatureUI/VaultSessionModel.swift"),
             encoding: .utf8
         )
         for excluded in ["Buying List", "Tools and Bookmarks", "Reading List", "Watches", "Inbox"] {
@@ -74,7 +74,7 @@ struct ArchitectureTests {
     @Test("production app target declares sandbox, bookmarks, and complete app icon assets")
     func productionAppConfiguration() throws {
         let root = repositoryRoot()
-        let entitlementsURL = root.appendingPathComponent("App/Resources/TGSidian.entitlements")
+        let entitlementsURL = root.appendingPathComponent("Sources/TGSidianApp/Resources/TGSidian.entitlements")
         let values = try #require(PropertyListSerialization.propertyList(
             from: Data(contentsOf: entitlementsURL),
             options: [],
@@ -95,7 +95,7 @@ struct ArchitectureTests {
         // The app icon is an Icon Composer bundle (macOS 26 Liquid Glass format); actool
         // derives every raster size from it, so no appiconset PNGs exist anymore.
         #expect(project.contains("AppIcon.icon in Resources"))
-        let iconBundle = root.appendingPathComponent("App/Resources/AppIcon.icon")
+        let iconBundle = root.appendingPathComponent("Sources/TGSidianApp/Resources/AppIcon.icon")
         let definition = iconBundle.appendingPathComponent("icon.json")
         let attributes = try FileManager.default.attributesOfItem(atPath: definition.path)
         #expect((attributes[.size] as? NSNumber)?.intValue ?? 0 > 0)
@@ -110,7 +110,7 @@ struct ArchitectureTests {
     @Test("every FeatureUI button uses the native titled accessibility bridge")
     func titledAccessibleButtons() throws {
         let root = repositoryRoot()
-        let featureUI = root.appendingPathComponent("Packages/TGSidianKit/Sources/FeatureUI")
+        let featureUI = root.appendingPathComponent("Sources/FeatureUI")
         let buttonFiles = [
             "EditorScreen.swift",
             "InspectorView.swift",
@@ -144,7 +144,7 @@ struct ArchitectureTests {
     func accessibilityBridgeDoesNotAffectLayout() throws {
         let source = try String(
             contentsOf: repositoryRoot().appendingPathComponent(
-                "Packages/TGSidianKit/Sources/FeatureUI/NativeAccessibleControl.swift"
+                "Sources/FeatureUI/NativeAccessibleControl.swift"
             ),
             encoding: .utf8
         )
@@ -173,7 +173,7 @@ struct ArchitectureTests {
     func inspectorMatchesSidebarStructure() throws {
         let source = try String(
             contentsOf: repositoryRoot().appendingPathComponent(
-                "Packages/TGSidianKit/Sources/FeatureUI/WorkspaceView.swift"
+                "Sources/FeatureUI/WorkspaceView.swift"
             ),
             encoding: .utf8
         )
@@ -192,7 +192,7 @@ struct ArchitectureTests {
 
         let editor = try String(
             contentsOf: repositoryRoot().appendingPathComponent(
-                "Packages/TGSidianKit/Sources/FeatureUI/EditorScreen.swift"
+                "Sources/FeatureUI/EditorScreen.swift"
             ),
             encoding: .utf8
         )

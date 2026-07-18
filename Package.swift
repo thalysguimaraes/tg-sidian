@@ -28,54 +28,45 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "AppCore",
-            path: "Packages/TGSidianKit/Sources/AppCore"
+            name: "AppCore"
         ),
         .target(
             name: "InstrumentationKit",
-            dependencies: ["AppCore"],
-            path: "Packages/TGSidianKit/Sources/InstrumentationKit"
+            dependencies: ["AppCore"]
         ),
         .target(
             name: "SecurityKit",
-            dependencies: ["AppCore"],
-            path: "Packages/TGSidianKit/Sources/SecurityKit"
+            dependencies: ["AppCore"]
         ),
         .target(
             name: "MarkdownKit",
-            dependencies: ["AppCore"],
-            path: "Packages/TGSidianKit/Sources/MarkdownKit"
+            dependencies: ["AppCore"]
         ),
         .target(
             name: "VaultKit",
-            dependencies: ["AppCore", "MarkdownKit"],
-            path: "Packages/TGSidianKit/Sources/VaultKit"
+            dependencies: ["AppCore", "MarkdownKit"]
         ),
         .target(
             name: "IndexKit",
             dependencies: [
                 "AppCore", "MarkdownKit", "VaultKit",
                 .product(name: "GRDB", package: "GRDB.swift")
-            ],
-            path: "Packages/TGSidianKit/Sources/IndexKit"
+            ]
         ),
         .target(
             name: "GraphKit",
-            dependencies: ["AppCore", "IndexKit"],
-            path: "Packages/TGSidianKit/Sources/GraphKit"
+            dependencies: ["AppCore", "IndexKit"]
         ),
         .target(
             name: "ExtensionSDK",
-            dependencies: ["AppCore"],
-            path: "Packages/TGSidianKit/Sources/ExtensionSDK"
+            dependencies: ["AppCore"]
         ),
         .target(
             name: "FeatureUI",
             dependencies: [
                 "AppCore", "MarkdownKit", "VaultKit", "IndexKit",
                 "GraphKit", "SecurityKit", "InstrumentationKit", "ExtensionSDK"
-            ],
-            path: "Packages/TGSidianKit/Sources/FeatureUI"
+            ]
         ),
         .executableTarget(
             name: "TGSidianApp",
@@ -83,18 +74,15 @@ let package = Package(
                 "AppCore", "MarkdownKit", "VaultKit", "IndexKit",
                 "GraphKit", "SecurityKit", "InstrumentationKit", "FeatureUI"
             ],
-            path: "App",
             exclude: ["Resources"]
         ),
         .executableTarget(
             name: "EditorEngineHarness",
-            dependencies: ["AppCore", "FeatureUI", "VaultKit"],
-            path: "Tools/EditorEngineHarness"
+            dependencies: ["AppCore", "FeatureUI", "VaultKit"]
         ),
         .target(
             name: "TestSupport",
-            dependencies: ["AppCore", "MarkdownKit", "VaultKit", "IndexKit", "GraphKit"],
-            path: "Packages/TGSidianKit/Sources/TestSupport"
+            dependencies: ["AppCore", "MarkdownKit", "VaultKit", "IndexKit", "GraphKit"]
         ),
         .testTarget(
             name: "TGSidianKitTests",
@@ -103,7 +91,6 @@ let package = Package(
                 "SecurityKit", "FeatureUI", "TestSupport", "ExtensionSDK",
                 .product(name: "GRDB", package: "GRDB.swift")
             ],
-            path: "Tests/TGSidianKitTests",
             resources: [.copy("Fixtures")]
         )
     ],

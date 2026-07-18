@@ -255,11 +255,11 @@ struct PENTA140ContextualNavigationTests {
     func graphAccessibilityContract() throws {
         let root = repositoryRoot()
         let inspector = try String(
-            contentsOf: root.appendingPathComponent("Packages/TGSidianKit/Sources/FeatureUI/InspectorView.swift"),
+            contentsOf: root.appendingPathComponent("Sources/FeatureUI/InspectorView.swift"),
             encoding: .utf8
         )
         let sprite = try String(
-            contentsOf: root.appendingPathComponent("Packages/TGSidianKit/Sources/FeatureUI/LocalGraphSpriteView.swift"),
+            contentsOf: root.appendingPathComponent("Sources/FeatureUI/LocalGraphSpriteView.swift"),
             encoding: .utf8
         )
 

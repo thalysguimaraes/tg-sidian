@@ -8,18 +8,18 @@
 
 /* Begin PBXBuildFile section */
 		295AE4EF5F7249825629317D /* FeatureUI in Frameworks */ = {isa = PBXBuildFile; productRef = CEC13CD3353B77767F6AD089 /* FeatureUI */; };
-		532D19AB3992DD25CB9C0794 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = CDC06C812E7AB7BF09FFD63E /* AppIcon.icon */; };
-		5FCC279D02E302787D8BC93C /* TGSidianApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F4E3392836982C56273AD97 /* TGSidianApp.swift */; };
-		72F63BDF612804B9E1F4AA99 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B522F0A5D93376816793C6B7 /* Assets.xcassets */; };
+		A07ECD8190C4F56F69E5EB9E /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = E093840C90C91A7592A47EB4 /* AppIcon.icon */; };
+		A1D2B17612CC86577BDBC5E1 /* TGSidianApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCF555F0C35283083F06002 /* TGSidianApp.swift */; };
 		C1E8CE1B9A4AD48825EEAF29 /* SecurityKit in Frameworks */ = {isa = PBXBuildFile; productRef = A02D491BB724859709F8F637 /* SecurityKit */; };
+		EB00A0CB3798862C972BF43D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 28111419C29E5D173CB8414F /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		28111419C29E5D173CB8414F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		2C3C0F599800CA16362835E7 /* TGSidian.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TGSidian.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		5F4E3392836982C56273AD97 /* TGSidianApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TGSidianApp.swift; sourceTree = "<group>"; };
-		803F225BEBE8AA9E7278CEB3 /* tg-sidian */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "tg-sidian"; path = .; sourceTree = SOURCE_ROOT; };
-		B522F0A5D93376816793C6B7 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		CDC06C812E7AB7BF09FFD63E /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
+		ACCF555F0C35283083F06002 /* TGSidianApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TGSidianApp.swift; sourceTree = "<group>"; };
+		E093840C90C91A7592A47EB4 /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
+		F0231E7E5CEE049B1B270783 /* tg-sidian-public.V4LyGw */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "tg-sidian-public.V4LyGw"; path = .; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -38,18 +38,36 @@
 		6594927DC42CDAC61476494D /* Packages */ = {
 			isa = PBXGroup;
 			children = (
-				803F225BEBE8AA9E7278CEB3 /* tg-sidian */,
+				F0231E7E5CEE049B1B270783 /* tg-sidian-public.V4LyGw */,
 			);
-			path = Packages;
+			name = Packages;
 			sourceTree = "<group>";
 		};
 		A0B62D11E5F0A32BC08D9F01 = {
 			isa = PBXGroup;
 			children = (
-				E768EB95E8713B9CD8801A0F /* App */,
 				6594927DC42CDAC61476494D /* Packages */,
+				F8414F0C73D80343FC95E7A5 /* Sources */,
 				E0CADD8BBAA5EE11A31E3A79 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		AEC7DAC0EE22AA13B6264D4B /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				E093840C90C91A7592A47EB4 /* AppIcon.icon */,
+				28111419C29E5D173CB8414F /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		B2CF140F0398E0757E619DA2 /* TGSidianApp */ = {
+			isa = PBXGroup;
+			children = (
+				AEC7DAC0EE22AA13B6264D4B /* Resources */,
+				ACCF555F0C35283083F06002 /* TGSidianApp.swift */,
+			);
+			path = TGSidianApp;
 			sourceTree = "<group>";
 		};
 		E0CADD8BBAA5EE11A31E3A79 /* Products */ = {
@@ -60,22 +78,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		E768EB95E8713B9CD8801A0F /* App */ = {
+		F8414F0C73D80343FC95E7A5 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				FD9E49C5445E737082E164C2 /* Resources */,
-				5F4E3392836982C56273AD97 /* TGSidianApp.swift */,
+				B2CF140F0398E0757E619DA2 /* TGSidianApp */,
 			);
-			path = App;
-			sourceTree = "<group>";
-		};
-		FD9E49C5445E737082E164C2 /* Resources */ = {
-			isa = PBXGroup;
-			children = (
-				CDC06C812E7AB7BF09FFD63E /* AppIcon.icon */,
-				B522F0A5D93376816793C6B7 /* Assets.xcassets */,
-			);
-			path = Resources;
+			path = Sources;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -143,8 +151,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				532D19AB3992DD25CB9C0794 /* AppIcon.icon in Resources */,
-				72F63BDF612804B9E1F4AA99 /* Assets.xcassets in Resources */,
+				A07ECD8190C4F56F69E5EB9E /* AppIcon.icon in Resources */,
+				EB00A0CB3798862C972BF43D /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -155,7 +163,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				5FCC279D02E302787D8BC93C /* TGSidianApp.swift in Sources */,
+				A1D2B17612CC86577BDBC5E1 /* TGSidianApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -166,14 +174,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = App/Resources/TGSidian.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Sources/TGSidianApp/Resources/TGSidian.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = App/Resources/Info.plist;
+				INFOPLIST_FILE = Sources/TGSidianApp/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -258,14 +266,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGN_ENTITLEMENTS = App/Resources/TGSidian.entitlements;
+				CODE_SIGN_ENTITLEMENTS = Sources/TGSidianApp/Resources/TGSidian.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = App/Resources/Info.plist;
+				INFOPLIST_FILE = Sources/TGSidianApp/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

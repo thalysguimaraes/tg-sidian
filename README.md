@@ -1,5 +1,5 @@
 <div align="center">
-  <h1><img src="docs/assets/tg-sidian-icon.png" width="128" height="128" alt="tg-sidian app icon"><br>tg-sidian</h1>
+  <h1><img src=".github/assets/tg-sidian-icon.png" width="128" height="128" alt="tg-sidian app icon"><br>tg-sidian</h1>
 
   <p><strong>A fast, native macOS workspace for your Markdown vault.</strong></p>
 
@@ -122,10 +122,6 @@ Issues and focused pull requests are welcome. Start with
 [CONTRIBUTING.md](CONTRIBUTING.md) for the local workflow and architecture rules.
 For security concerns, follow the private reporting guidance in
 [SECURITY.md](SECURITY.md).
-
-Useful design and implementation context lives in [`docs/adr`](docs/adr) and the
-release checklist is tracked in
-[`docs/OPEN_SOURCE_LAUNCH.md`](docs/OPEN_SOURCE_LAUNCH.md).
 
 ## License
 

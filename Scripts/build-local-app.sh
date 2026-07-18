@@ -6,7 +6,7 @@ OUTPUT="${1:-$ROOT/.artifacts/tg-sidian.app}"
 CONFIGURATION="${2:-${CONFIGURATION:-debug}}"
 PROJECT="$ROOT/TGSidian.xcodeproj"
 SCHEME="TGSidian"
-ENTITLEMENTS="$ROOT/App/Resources/TGSidian.entitlements"
+ENTITLEMENTS="$ROOT/Sources/TGSidianApp/Resources/TGSidian.entitlements"
 DERIVED_DATA="${DERIVED_DATA:-$ROOT/.build/xcode-app}"
 
 case "$CONFIGURATION" in
@@ -19,7 +19,7 @@ case "$CONFIGURATION" in
 esac
 
 cd "$ROOT"
-plutil -lint "$ROOT/App/Resources/Info.plist" >/dev/null
+plutil -lint "$ROOT/Sources/TGSidianApp/Resources/Info.plist" >/dev/null
 plutil -lint "$ENTITLEMENTS" >/dev/null
 test -f "$PROJECT/project.pbxproj"
 
