@@ -18,14 +18,14 @@ public struct VaultRoot: Sendable {
         for component in path.components {
             candidate.appendPathComponent(component, isDirectory: false)
             candidate = candidate.resolvingSymlinksInPath().standardizedFileURL
-            try ensureContained(candidate)
+            try ensureResolvedURLContained(candidate)
         }
         return candidate
     }
 
     public func relativePath(for fileURL: URL) throws -> RelativePath {
         let resolved = fileURL.resolvingSymlinksInPath().standardizedFileURL
-        try ensureContained(resolved)
+        try ensureResolvedURLContained(resolved)
         let rootPath = resolvedURL.path.hasSuffix("/") ? resolvedURL.path : resolvedURL.path + "/"
         guard resolved.path.hasPrefix(rootPath) else {
             throw TGSidianError.pathEscapesVault(resolved.path)
@@ -35,6 +35,12 @@ public struct VaultRoot: Sendable {
 
     public func ensureContained(_ fileURL: URL) throws {
         let resolved = fileURL.resolvingSymlinksInPath().standardizedFileURL
+        try ensureResolvedURLContained(resolved)
+    }
+
+    /// Validates a URL that the caller has already canonicalized. This avoids a second symlink
+    /// walk while retaining the per-component escape checks in `resolve`.
+    private func ensureResolvedURLContained(_ resolved: URL) throws {
         let rootPath = resolvedURL.path
         let candidatePath = resolved.path
         guard candidatePath == rootPath || candidatePath.hasPrefix(rootPath + "/") else {

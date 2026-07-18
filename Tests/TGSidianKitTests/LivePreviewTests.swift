@@ -143,6 +143,35 @@ struct LivePreviewTests {
         #expect(concealment.elements.contains { $0.kind == .bold })
     }
 
+    @Test("reusing highlighter ranges is exactly equivalent to independent scanning")
+    func reusedHighlighterRangesAreEquivalent() {
+        let text = """
+        ---
+        title: **literal front matter**
+        ---
+        # Heading with **weight**
+        - [x] Task with [[Folder/Target#Part|alias]] and [docs](https://example.com)
+        Mix *italic*, __bold__, ~~gone~~, `inline **literal**`, and #tag.
+        ---
+        ```
+        ## literal fence [[not a link]]
+        ```
+        """
+        let styledRanges = MarkdownHighlighter().scan(text)
+        let exclusions = styledRanges
+            .filter { $0.kind == .frontMatter || $0.kind == .codeFence }
+            .map(\.range)
+
+        let independent = LivePreviewConcealment.scan(text, excluding: exclusions)
+        let reused = LivePreviewConcealment.scan(
+            text,
+            excluding: exclusions,
+            reusing: styledRanges
+        )
+
+        #expect(reused == independent)
+    }
+
     // MARK: - Surface behavior
 
     @Test("markers are concealed away from the caret and revealed on its line")

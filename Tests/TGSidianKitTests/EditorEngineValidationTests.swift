@@ -127,6 +127,8 @@ struct EditorEngineValidationTests {
         let ranges = highlighter.scan(markdown)
 
         #expect(highlighter.wikiLinkTarget(in: markdown, at: 20) == "Notes/Editor")
+        let legacyCR = "Open [[Legacy\rTarget]] now"
+        #expect(highlighter.wikiLinkTarget(in: legacyCR, at: 10) == "Legacy\rTarget")
         #expect(ranges.filter { $0.kind == .task }.count == 2)
         let fence = ranges.first { $0.kind == .codeFence }
         #expect(fence != nil)

@@ -56,7 +56,7 @@ targets:
         ENABLE_USER_SELECTED_FILES: readwrite
         GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_FILE: Sources/TGSidianApp/Resources/Info.plist
-        MARKETING_VERSION: 0.1.0
+        MARKETING_VERSION: 0.1.1
         PRODUCT_BUNDLE_IDENTIFIER: design.thalys.tg-sidian
         PRODUCT_MODULE_NAME: TGSidianApp
         PRODUCT_NAME: tg-sidian
